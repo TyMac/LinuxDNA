@@ -1,0 +1,158 @@
+diff -burN clean/arch/x86/boot/compressed/Makefile icc.new/arch/x86/boot/compressed/Makefile
+--- clean/arch/x86/boot/compressed/Makefile	2009-12-03 11:51:21.000000000 +0800
++++ icc.new/arch/x86/boot/compressed/Makefile	2011-04-18 20:44:47.385504526 +0800
+@@ -6,7 +6,7 @@
+ 
+ targets := vmlinux.lds vmlinux vmlinux.bin vmlinux.bin.gz vmlinux.bin.bz2 vmlinux.bin.lzma head_$(BITS).o misc.o piggy.o
+ 
+-KBUILD_CFLAGS := -m$(BITS) -D__KERNEL__ $(LINUX_INCLUDE) -O2
++KBUILD_CFLAGS := -m$(BITS) -D__KERNEL__ $(LINUX_INCLUDE) -O2 -no-vec -mP2OPT_il0_switch_max_jump_table_entries=0
+ KBUILD_CFLAGS += -fno-strict-aliasing -fPIC
+ KBUILD_CFLAGS += -DDISABLE_BRANCH_PROFILING
+ cflags-$(CONFIG_X86_64) := -mcmodel=small
+diff -burN clean/arch/x86/include/asm/percpu.h icc.new/arch/x86/include/asm/percpu.h
+--- clean/arch/x86/include/asm/percpu.h	2009-12-03 11:51:21.000000000 +0800
++++ icc.new/arch/x86/include/asm/percpu.h	2011-04-18 20:44:47.416598864 +0800
+@@ -145,7 +145,7 @@
+ #define percpu_read(var)	percpu_from_op("mov", per_cpu__##var,	\
+ 					       "m" (per_cpu__##var))
+ #define percpu_read_stable(var)	percpu_from_op("mov", per_cpu__##var,	\
+-					       "p" (&per_cpu__##var))
++					       "m" (per_cpu__##var))
+ #define percpu_write(var, val)	percpu_to_op("mov", per_cpu__##var, val)
+ #define percpu_add(var, val)	percpu_to_op("add", per_cpu__##var, val)
+ #define percpu_sub(var, val)	percpu_to_op("sub", per_cpu__##var, val)
+diff -burN clean/arch/x86/kernel/apic/Makefile icc.new/arch/x86/kernel/apic/Makefile
+--- clean/arch/x86/kernel/apic/Makefile	2009-12-03 11:51:21.000000000 +0800
++++ icc.new/arch/x86/kernel/apic/Makefile	2011-04-18 20:47:38.297036212 +0800
+@@ -17,3 +17,5 @@
+ obj-$(CONFIG_X86_NUMAQ)		+= numaq_32.o
+ obj-$(CONFIG_X86_ES7000)	+= es7000_32.o
+ obj-$(CONFIG_X86_SUMMIT)	+= summit_32.o
++
++CC=fcc
+diff -burN clean/arch/x86/kernel/Makefile icc.new/arch/x86/kernel/Makefile
+--- clean/arch/x86/kernel/Makefile	2010-10-27 14:24:55.000000000 +0800
++++ icc.new/arch/x86/kernel/Makefile	2011-04-18 20:48:24.398035752 +0800
+@@ -131,3 +131,5 @@
+ 	obj-$(CONFIG_PCI_MMCONFIG)	+= mmconf-fam10h_64.o
+ 	obj-y				+= vsmp_64.o
+ endif
++
++CC=fcc
+diff -burN clean/arch/x86/Makefile icc.new/arch/x86/Makefile
+--- clean/arch/x86/Makefile	2010-10-27 14:24:44.000000000 +0800
++++ icc.new/arch/x86/Makefile	2011-04-18 20:45:59.999037130 +0800
+@@ -107,7 +107,8 @@
+ #
+ KBUILD_CFLAGS += -fno-asynchronous-unwind-tables
+ # prevent gcc from generating any FP code by mistake
+-KBUILD_CFLAGS += $(call cc-option,-mno-sse -mno-mmx -mno-sse2 -mno-3dnow,)
++# -- WORKAROUND FOR DPD200161105
++KBUILD_CFLAGS += $(call cc-option,-mno-sse -mno-mmx -mno-sse2 -mno-3dnow -no-vec,)
+ 
+ KBUILD_CFLAGS += $(mflags-y)
+ KBUILD_AFLAGS += $(mflags-y)
+diff -burN clean/arch/x86/vdso/Makefile icc.new/arch/x86/vdso/Makefile
+--- clean/arch/x86/vdso/Makefile	2010-10-27 14:23:44.000000000 +0800
++++ icc.new/arch/x86/vdso/Makefile	2011-04-18 20:49:16.151035593 +0800
+@@ -139,3 +139,5 @@
+ vdso_install: $(vdso-install-y)
+ 
+ clean-files := vdso32-syscall* vdso32-sysenter* vdso32-int80*
++
++CC=fcc
+diff -burN clean/drivers/infiniband/hw/qib/qib_iba7322.c icc.new/drivers/infiniband/hw/qib/qib_iba7322.c
+--- clean/drivers/infiniband/hw/qib/qib_iba7322.c	2010-10-27 14:25:05.000000000 +0800
++++ icc.new/drivers/infiniband/hw/qib/qib_iba7322.c	2011-04-18 20:44:47.453160798 +0800
+@@ -1409,9 +1409,9 @@
+ 	u64 pbc;
+ 	const unsigned hdrwords = 7;
+ 	static struct qib_ib_header ibhdr = {
+-		.lrh[0] = cpu_to_be16(0xF000 | QIB_LRH_BTH),
++		.lrh[0] = ___constant_swab16(0xF000 | QIB_LRH_BTH),
+ 		.lrh[1] = IB_LID_PERMISSIVE,
+-		.lrh[2] = cpu_to_be16(hdrwords + SIZE_OF_CRC),
++		.lrh[2] = ___constant_swab16(hdrwords + SIZE_OF_CRC),
+ 		.lrh[3] = IB_LID_PERMISSIVE,
+ 		.u.oth.bth[0] = cpu_to_be32(
+ 			(IB_OPCODE_UD_SEND_ONLY << 24) | QIB_DEFAULT_P_KEY),
+diff -burN clean/init/Makefile icc.new/init/Makefile
+--- clean/init/Makefile	2009-12-03 11:51:21.000000000 +0800
++++ icc.new/init/Makefile	2011-04-18 20:52:34.750035952 +0800
+@@ -34,3 +34,5 @@
+ 	@$($(quiet)chk_compile.h)
+ 	$(Q)$(CONFIG_SHELL) $(srctree)/scripts/mkcompile_h $@ \
+ 	"$(UTS_MACHINE)" "$(CONFIG_SMP)" "$(CONFIG_PREEMPT)" "$(CC) $(KBUILD_CFLAGS)"
++
++CC=fcc
+diff -burN clean/kernel/module.c icc.new/kernel/module.c
+--- clean/kernel/module.c	2011-03-30 23:39:29.935435492 +0800
++++ icc.new/kernel/module.c	2011-04-18 20:56:52.624036821 +0800
+@@ -2191,6 +2191,11 @@
+ 	versindex = find_sec(hdr, sechdrs, secstrings, "__versions");
+ 	infoindex = find_sec(hdr, sechdrs, secstrings, ".modinfo");
+ 	pcpuindex = find_pcpusec(hdr, sechdrs, secstrings);
++	// WORKAROUND FOR DPD200167859
++	// ignore empty percpu section
++	if (pcpuindex && !sechdrs[pcpuindex].sh_size) {
++		pcpuindex = 0;
++	}
+ 
+ 	/* Don't keep modinfo and version sections. */
+ 	sechdrs[infoindex].sh_flags &= ~(unsigned long)SHF_ALLOC;
+diff -burN clean/Makefile icc.new/Makefile
+--- clean/Makefile	2010-10-27 14:25:06.000000000 +0800
++++ icc.new/Makefile	2011-04-18 23:05:31.624098287 +0800
+@@ -227,8 +227,8 @@
+ 	  else if [ -x /bin/bash ]; then echo /bin/bash; \
+ 	  else echo sh; fi ; fi)
+ 
+-HOSTCC       = gcc
+-HOSTCXX      = g++
++HOSTCC       = icc
++HOSTCXX      = icpc
+ HOSTCFLAGS   = -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer
+ HOSTCXXFLAGS = -O2
+ 
+@@ -314,7 +314,7 @@
+ 
+ AS		= $(CROSS_COMPILE)as
+ LD		= $(CROSS_COMPILE)ld
+-CC		= $(CROSS_COMPILE)gcc
++CC		= $(CROSS_COMPILE)icc
+ CPP		= $(CC) -E
+ AR		= $(CROSS_COMPILE)ar
+ NM		= $(CROSS_COMPILE)nm
+@@ -353,7 +353,8 @@
+ 		   -fno-strict-aliasing -fno-common \
+ 		   -Werror-implicit-function-declaration \
+ 		   -Wno-format-security \
+-		   -fno-delete-null-pointer-checks
++		   -fno-delete-null-pointer-checks \
++		   -ffreestanding
+ 
+ ifneq (,$(filter $(ARCH), i386 x86_64))
+ CPP_MAJOR       := $(shell $(CPP) -dumpversion 2>&1 | cut -d'.' -f1)
+@@ -368,7 +369,7 @@
+ # gcc version 4.4.4 .
+ ifeq ($(KBUILD_EXTMOD),)
+ KBUILD_CFLAGS   += $(shell if [ $(CPP_VERS) -ge 4004004 ]; then \
+-		   echo "-Wno-array-bounds -Werror"; else echo ""; fi)
++		   echo "-Wno-array-bounds"; else echo ""; fi)
+ endif ##($(KBUILD_EXTMOD),)
+ endif #(,$(filter $(ARCH), i386 x86_64))
+ 
+diff -burN clean/scripts/Makefile.modpost icc.new/scripts/Makefile.modpost
+--- clean/scripts/Makefile.modpost	2010-10-27 14:24:24.000000000 +0800
++++ icc.new/scripts/Makefile.modpost	2011-04-29 00:45:50.719297248 +0800
+@@ -110,7 +110,8 @@
+ modname = $(notdir $(@:.mod.o=))
+ 
+ quiet_cmd_cc_o_c = CC      $@
+-      cmd_cc_o_c = $(CC) $(c_flags) $(CFLAGS_MODULE)	\
++# Workaround for "Module signature verification failed"
++      cmd_cc_o_c = gcc $(c_flags) $(CFLAGS_MODULE)	\
+ 		   -c -o $@ $<
+ 
+ $(modules:.ko=.mod.o): %.mod.o: %.mod.c FORCE
