@@ -1,0 +1,31 @@
+#!/bin/sh
+
+DEBUG_FCC=0
+COMPILE_BYGCC=0
+
+for ARG in $@ 
+do
+
+case $ARG in
+
+arch/x86/kernel/apic/nmi.c | init/calibrate.c | arch/x86/kernel/tsc.c | arch/x86/kernel/vsyscall_64.c | arch/x86/vdso/vclock_gettime.c )
+	COMPILE_BYGCC=1
+	;;
+
+esac
+
+done
+
+if [ $COMPILE_BYGCC == 0 ]; then
+	if [ $DEBUG_FCC == 1 ]; then
+		echo icc $@
+	fi
+	icc $@
+else
+	if [ $DEBUG_FCC == 1 ]; then
+		echo gcc $@
+	fi
+	gcc $@
+fi
+
+exit $?
